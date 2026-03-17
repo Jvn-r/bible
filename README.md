@@ -36,7 +36,7 @@ bible/
 ### Docker - simplest
 Make sure Docker is installed, then:
 ```bash
-git clone <repo-url>
+git clone <https://github.com/Jvn-r/bible>
 cd bible
 mkdir data
 docker-compose up --build

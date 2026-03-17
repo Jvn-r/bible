@@ -9,14 +9,11 @@
 
 ---
 ## Connection Pattern
-
 All DB access goes through the `get_db()` context manager. It handles open, commit, rollback on error, and close automatically.
-
 ```python
 with get_db() as db:
     db.execute("SELECT * FROM tasks")
 ```
-
 Never call `get_connection()` directly in endpoints — always use `get_db()`.
 
 ---

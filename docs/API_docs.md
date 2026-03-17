@@ -7,11 +7,13 @@
 ```
 bible/
 ├──backend/
-	├── main.py             — FastAPI app, all endpoints, business logic
-	├── database.py         — SQLite connection, context manager, table initializer 
-	├── structs_pydantic.py — Pydantic models (request/response shapes)
-	├── requirements.txt    — Python dependencies
-	└── Dockerfile          — Container definition
+|	├── main.py             — FastAPI app, all endpoints, business logic
+|	├── database.py         — SQLite connection, context manager,table initializer 
+|	├── structs_pydantic.py — Pydantic models (request/response shapes)
+|	├── requirements.txt    — Python dependencies
+|	└── Dockerfile          — Container definition
+└──data/
+	└──bible.db
 ```
 ---
 ## Pydantic Models (`structs_pydantic.py`)
@@ -24,16 +26,16 @@ Theyre basically just structs
 
 | Field          | Type               | Required | Default | Notes                                |
 | -------------- | ------------------ | -------- | ------- | ------------------------------------ |
-| `title`        | `str`              | ✅        | —       | Task name                            |
-| `description`  | `str \| None`      | ❌        | `None`  | Optional details                     |
-| `start_time`   | `datetime`         | ✅        | —       | ISO 8601 format                      |
-| `end_time`     | `datetime \| None` | ❌        | `None`  | Provide this OR duration             |
-| `duration`     | `int \| None`      | ❌        | `None`  | In minutes. Provide this OR end_time |
-| `priority`     | `str`              | ✅        | —       | `"low"`, `"moderate"`, `"high"`      |
-| `difficulty`   | `str`              | ✅        | —       | `"low"`, `"moderate"`, `"high"`      |
-| `deadline`     | `datetime \| None` | ❌        | `None`  | Optional hard deadline               |
-| `is_completed` | `bool`             | ❌        | `false` | Usually left as default on create    |
-| `is_deleted`   | `bool`             | ❌        | `false` | Usually left as default on create    |
+| `title`        | `str`              | Y        | ---     | Task name                            |
+| `description`  | `str \| None`      | N        | `None`  | Optional details                     |
+| `start_time`   | `datetime`         | Y        | ---     | ISO format                           |
+| `end_time`     | `datetime \| None` | N        | `None`  | Provide this OR duration             |
+| `duration`     | `int \| None`      | N        | `None`  | In minutes. Provide this OR end_time |
+| `priority`     | `str`              | Y        | ---     | `"low"`, `"moderate"`, `"high"`      |
+| `difficulty`   | `str`              | Y        | ---     | `"low"`, `"moderate"`, `"high"`      |
+| `deadline`     | `datetime \| None` | N        | `None`  | Optional hard deadline               |
+| `is_completed` | `bool`             | N        | `false` | Usually left as default on create    |
+| `is_deleted`   | `bool`             | N        | `false` | Usually left as default on create    |
 
 > **Rule:** You must provide either `end_time` or `duration`. Not both, not neither. If you provide `duration`, `end_time` is calculated automatically. If you provide `end_time`, `duration` is calculated automatically.
 
@@ -268,8 +270,8 @@ Full update on a task. Send only the fields you want to change.
 
 Helper function in `main.py`. Called on every create and time-related update.
 
-- If only `duration` given → calculates `end_time = start_time + duration`
-- If only `end_time` given → calculates `duration` from the difference
+- If only `duration` given -> calculates `end_time = start_time + duration`
+- If only `end_time` given -> calculates `duration` from the difference
 - Validates `end_time > start_time`
 - Raises `HTTP 400` if neither is provided or if times are invalid
 

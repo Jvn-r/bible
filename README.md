@@ -176,4 +176,4 @@ Full documentation in `docs/API_DOCS.md`.
 
 - [API Documentation](docs/API_DOCS.md)
 - [Database Documentation](docs/DB_DOCS.md)
-- [Frontend Documentation](docs/FRONTEND_DOCS.md)
+- [Frontend Documentation](docs/FRONTEND_docs.md)

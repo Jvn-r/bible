@@ -12,3 +12,15 @@ services:
     environment:
       - DB_PATH=/app/data/bible.db
     restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: bible_frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    restart: unless-stopped

@@ -43,5 +43,14 @@ Called once on FastAPI startup via the `@app.on_event("startup")` hook. Creates 
 
 > **Note:** SQLite has no native `boolean` or `datetime` types. Booleans are stored as `INTEGER` (`0`/`1`). Datetimes are stored as `TEXT` in ISO 8601 format (`2025-11-22T09:00:00`). Pydantic handles the conversion automatically on the way in and out.
 
+### Table: `users`
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | TEXT | PRIMARY KEY | UUID generated in Python on insert |
+| `username` | TEXT | NOT NULL, UNIQUE | Login identifier |
+| `hashed_password` | TEXT | NOT NULL | bcrypt hash — plaintext never stored |
+| `created_at` | TEXT | NOT NULL | ISO 8601 timestamp |
+
 ---
 # [API Docs]([[API docs]])

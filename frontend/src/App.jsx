@@ -1,13 +1,16 @@
 import { useState, useEffect } from "react"
 import TaskForm from "./components/TaskForm"
 import TaskList from "./components/TaskList"
-import { getTasks, createTask, completeTask, deleteTask, updateTask } from "./api"
+import LoginForm from "./components/LoginForm"
+import { getTasks, createTask, completeTask, deleteTask, updateTask, getToken } from "./api"
+
 function App() {
   const [tasks, setTasks] = useState([])
+  const [authed, setAuthed] = useState(false)
 
   useEffect(() => {
-    fetchTasks()
-  }, [])
+    if (authed) fetchTasks()
+  }, [authed])
 
   async function fetchTasks() {
     const data = await getTasks()
@@ -30,9 +33,13 @@ function App() {
   }
 
   async function handleEdit(id, data) {
-  await updateTask(id, data)
-  fetchTasks()
-}
+    await updateTask(id, data)
+    fetchTasks()
+  }
+
+  if (!authed) {
+    return <LoginForm onAuth={() => setAuthed(true)} />
+  }
 
   return (
     <div>

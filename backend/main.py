@@ -1,9 +1,11 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from structs_pydantic import TaskCreate, TaskUpdate, Task
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from structs_pydantic import TaskCreate, TaskUpdate, Task, RegisterRequest, LoginRequest, TokenResponse
 from database import get_db, init_db
 from datetime import datetime, timedelta
 from dateutil.parser import parse
+from auth import get_current_user, hash_password, verify_password, create_access_token
 import uuid
 
 app = FastAPI(
@@ -53,9 +55,47 @@ def row_to_dict(row) -> dict:
     # sqlite3 rows are index-based by default, this converts them to dicts
     return dict(row)
 
+@app.post("/auth/register", response_model=TokenResponse, status_code=201)
+async def register(body: RegisterRequest):
+    with get_db() as db:
+        existing = db.execute(
+            "SELECT id FROM users WHERE username = ?", (body.username,)
+        ).fetchone()
+        if existing:
+            raise HTTPException(status_code=400, detail="Username already taken")
+
+        user_id = str(uuid.uuid4())
+        now = datetime.now().isoformat()
+        db.execute(
+            "INSERT INTO users (id, username, hashed_password, created_at) VALUES (?,?,?,?)",
+            (user_id, body.username, hash_password(body.password), now)
+        )
+
+    token = create_access_token(user_id)
+    return TokenResponse(access_token=token)
+
+
+
+@app.post("/auth/login", response_model=TokenResponse)
+async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    with get_db() as db:
+        row = db.execute(
+            "SELECT id, hashed_password FROM users WHERE username = ?", (form_data.username,)
+        ).fetchone() 
+
+    if not row or not verify_password(form_data.password, row["hashed_password"]):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    token = create_access_token(row["id"])
+    return TokenResponse(access_token=token)
+
 
 @app.post("/tasks/", status_code=201, response_model=Task)
-async def add_task(task: TaskCreate):
+async def add_task(task: TaskCreate, current_user: str = Depends(get_current_user)):
     end_time, duration = normalize_times(task.start_time, task.end_time, task.duration)
 
     task_id = str(uuid.uuid4())
@@ -72,7 +112,7 @@ async def add_task(task: TaskCreate):
             """,
             (
                 task_id,
-                "default_user",  # swap this out when auth lands
+                current_user,
                 task.title,
                 task.description,
                 task.start_time.isoformat(),
@@ -94,13 +134,13 @@ async def add_task(task: TaskCreate):
 
 @app.get("/tasks/")
 async def get_tasks(
-    user_id: str = "default_user",
+    current_user: str = Depends(get_current_user),
     completed: bool | None = None,
     deleted: bool | None = None,
     all: bool = False
 ):
     query = "SELECT * FROM tasks WHERE user_id = ?"
-    params: list = [user_id]
+    params: list = [current_user]
 
     if not all:
         if completed is None and deleted is None:
@@ -120,22 +160,26 @@ async def get_tasks(
 
 
 @app.get("/tasks/{task_id}", response_model=Task)
-async def get_task_by_id(task_id: str):
+async def get_task_by_id(task_id: str, current_user: str = Depends(get_current_user)):
     with get_db() as db:
         row = db.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
 
     if not row:
         raise HTTPException(status_code=404, detail=f"couldn't find task: {task_id}")
+    if row["user_id"] != current_user:
+        raise HTTPException(status_code=403, detail="Not authorised")
 
     return row_to_dict(row)
 
 
 @app.delete("/tasks/{task_id}")
-async def delete_task(task_id: str):
+async def delete_task(task_id: str, current_user: str = Depends(get_current_user)):
     with get_db() as db:
         row = db.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail=f"couldn't find task: {task_id}")
+        if row["user_id"] != current_user:
+            raise HTTPException(status_code=403, detail="Not authorised")
 
         db.execute(
             "UPDATE tasks SET is_deleted = 1, updated_at = ? WHERE id = ?",
@@ -144,12 +188,15 @@ async def delete_task(task_id: str):
 
     return {"message": f"task: {task_id} deleted successfully"}
 
+
 @app.patch("/tasks/{task_id}/undelete", response_model=Task)
-async def undelete_task(task_id: str):
+async def undelete_task(task_id: str, current_user: str = Depends(get_current_user)):
     with get_db() as db:
         row = db.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail=f"couldn't find task: {task_id}")
+        if row["user_id"] != current_user:
+            raise HTTPException(status_code=403, detail="Not authorised")
         if not row_to_dict(row)["is_deleted"]:
             raise HTTPException(status_code=400, detail="task is not deleted")
 
@@ -161,12 +208,15 @@ async def undelete_task(task_id: str):
 
     return row_to_dict(updated)
 
+
 @app.patch("/tasks/{task_id}/complete", response_model=Task)
-async def mark_as_complete(task_id: str):
+async def mark_as_complete(task_id: str, current_user: str = Depends(get_current_user)):
     with get_db() as db:
         row = db.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail=f"couldn't find task: {task_id}")
+        if row["user_id"] != current_user:
+            raise HTTPException(status_code=403, detail="Not authorised")
         if row_to_dict(row)["is_deleted"]:
             raise HTTPException(status_code=400, detail="cannot complete a deleted task")
 
@@ -180,11 +230,13 @@ async def mark_as_complete(task_id: str):
 
 
 @app.patch("/tasks/{task_id}/incomplete", response_model=Task)
-async def mark_as_incomplete(task_id: str):
+async def mark_as_incomplete(task_id: str, current_user: str = Depends(get_current_user)):
     with get_db() as db:
         row = db.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail=f"couldn't find task: {task_id}")
+        if row["user_id"] != current_user:
+            raise HTTPException(status_code=403, detail="Not authorised")
         if row_to_dict(row)["is_deleted"]:
             raise HTTPException(status_code=400, detail="cannot mark incomplete a deleted task")
 
@@ -204,11 +256,13 @@ def convert_str_to_datetime(value):
 
 
 @app.put("/tasks/{task_id}", response_model=Task)
-async def update_task(task_id: str, task_update: TaskUpdate):
+async def update_task(task_id: str, task_update: TaskUpdate, current_user: str = Depends(get_current_user)):
     with get_db() as db:
         row = db.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Task not found")
+        if row["user_id"] != current_user:
+            raise HTTPException(status_code=403, detail="Not authorised")
 
         existing_task = row_to_dict(row)
 
@@ -230,7 +284,6 @@ async def update_task(task_id: str, task_update: TaskUpdate):
 
         new_data["updated_at"] = datetime.now().isoformat()
 
-        # dynamically build the SET clause from whatever fields were passed
         set_clause = ", ".join(f"{k} = ?" for k in new_data)
         values = list(new_data.values()) + [task_id]
 
@@ -238,3 +291,5 @@ async def update_task(task_id: str, task_update: TaskUpdate):
         updated = db.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
 
     return row_to_dict(updated)
+
+ 

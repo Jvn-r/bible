@@ -8,7 +8,8 @@
 bible/
 ├──backend/
 |	├── main.py             — FastAPI app, all endpoints, business logic
-|	├── database.py         — SQLite connection, context manager,table initializer 
+|	├── auth.py             — JWT logic: hashing, token creation/decoding, auth dependency
+|	├── database.py         — SQLite connection, context manager, table initializer 
 |	├── structs_pydantic.py — Pydantic models (request/response shapes)
 |	├── requirements.txt    — Python dependencies
 |	└── Dockerfile          — Container definition
@@ -65,7 +66,7 @@ All fields are optional. Only send what you want to change.
 |Field|Type|Notes|
 |---|---|---|
 |`id`|`str`|UUID, generated on creation|
-|`user_id`|`str`|Currently hardcoded `"default_user"` — will be real user ID after auth|
+|`user_id`|`str`|ID of the authenticated user who owns this task|
 |`title`|`str`||
 |`description`|`str \| None`||
 |`start_time`|`datetime`||
@@ -78,6 +79,82 @@ All fields are optional. Only send what you want to change.
 |`is_deleted`|`bool`||
 |`created_at`|`datetime`|Set on creation, never changes|
 |`updated_at`|`datetime`|Updated on every write operation|
+
+---
+
+### `RegisterRequest` Model — used when registering a new user (POST body)
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `username` | `str` | Y | Must be unique |
+| `password` | `str` | Y | Plaintext — hashed before storage |
+
+---
+
+### `LoginRequest` Model — used when logging in (POST body)
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `username` | `str` | Y | |
+| `password` | `str` | Y | Verified against stored hash |
+
+---
+
+### `TokenResponse` Model — returned after successful login
+
+| Field          | Type  | Notes             |
+| -------------- | ----- | ----------------- |
+| `access_token` | `str` | Signed JWT        |
+| `token_type`   | `str` | Always `"bearer"` |
+
+---
+## Auth Endpoints (`auth.py`)
+
+---
+### `POST /auth/register`
+
+Register a new user.
+**Status:** `201 Created` **Request body:** `RegisterRequest` **Response:** `TokenResponse`
+
+**Example request**
+```json
+{
+  "username": "jvnr",
+  "password": "mypassword"
+}
+```
+
+**Example response**
+```json
+{
+  "access_token": "eyJhbGci...",
+  "token_type": "bearer"
+}
+```
+
+**Errors**
+
+| Code | Reason |
+|---|---|
+| `400` | Username already taken |
+
+---
+
+### `POST /auth/login`
+
+Login with existing credentials. Accepts form data — use Swagger's Authorize button directly.
+**Status:** `200 OK` **Request body:** `OAuth2PasswordRequestForm` (form data) **Response:** `TokenResponse`
+
+| Field      | Type       | Notes |
+| ---------- | ---------- | ----- |
+| `username` | form field |       |
+| `password` | form field |       |
+
+**Errors**
+
+| Code  | Reason                       |
+| ----- | ---------------------------- |
+| `401` | Invalid username or password |
 
 ---
 ## API Endpoints (`main.py`)
@@ -285,9 +362,19 @@ Tasks are never hard deleted from the database. `DELETE /tasks/{id}` sets `is_de
 
 This means all data is always recoverable. The default `GET /tasks/` query filters out deleted tasks automatically.
 
+### `OAuth2PasswordRequestForm` for login
+
+Login uses FastAPI's built-in `OAuth2PasswordRequestForm` instead of a JSON body.
+This makes Swagger's Authorize button work out of the box — enter username and password,
+leave client ID and client secret blank. The token is stored and sent automatically.
+
 ---
 ## Auth Note
-Everything currently uses `user_id = "default_user"` hardcoded. When Auth lands, this gets replaced with the actual authenticated user's ID. Every endpoint that reads or writes tasks will need to pull `user_id` from the auth token instead. The DB schema is already ready for it — `user_id` column exists on every row.
+All task endpoints are protected. Every request must include a valid JWT in the header:
+`Authorization: Bearer <token>`
+Tokens are issued on login and expire after **24 hours**. Each token encodes the user's `user_id`. All task queries are automatically scoped to that user — no user can read or modify another user's tasks.
+
+Passwords are hashed with **bcrypt** and never stored in plaintext.
 
 ---
 ## [Database Docs]([[Database docs]])

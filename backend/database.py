@@ -45,4 +45,12 @@ def init_db():
                 updated_at   TEXT NOT NULL
             )
         """)
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id              TEXT PRIMARY KEY,
+                username        TEXT NOT NULL UNIQUE,
+                hashed_password TEXT NOT NULL,
+                created_at      TEXT NOT NULL
+            )
+        """)
     print(f"DB initialised at: {DB_PATH}")

@@ -140,6 +140,14 @@ VITE_API_URL=http://<your-ip>:8000
 
 ## API Overview
 
+### Auth
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/auth/register` | Register a new user |
+| `POST` | `/auth/login` | Login and receive a JWT |
+
+### Tasks (all protected — require Bearer token)
 | Method | Endpoint | Description |
 |---|---|---|
 | `GET` | `/` | Health check |
@@ -164,7 +172,7 @@ Full documentation in `docs/API_DOCS.md`.
 - [x] React frontend — To-Do MVP (create, view, edit, complete, delete)
 - [ ] Tailwind CSS styling
 - [ ] Task filtering (completed, deleted, all)
-- [ ] Authentication
+- [x] Authentication
 - [ ] Deploy to Raspberry Pi
 - [ ] Timetable view
 - [ ] Notifications
@@ -174,6 +182,6 @@ Full documentation in `docs/API_DOCS.md`.
 
 ## Docs
 
-- [API Documentation](docs/API_DOCS.md)
-- [Database Documentation](docs/DB_DOCS.md)
+- [API Documentation](docs/API_docs.md)
+- [Database Documentation](docs/DB_docs.md)
 - [Frontend Documentation](docs/FRONTEND_docs.md)

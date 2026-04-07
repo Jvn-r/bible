@@ -9,6 +9,8 @@ services:
     volumes:
       - ./backend:/app
       - ./data:/app/data
+    env_file:
+      - ./backend/.env
     environment:
       - DB_PATH=/app/data/bible.db
     restart: unless-stopped

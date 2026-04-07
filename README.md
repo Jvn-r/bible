@@ -23,25 +23,27 @@ The end goal is a fully dynamic scheduler that considers your routine, orders ta
 ```
 bible/
 ├── backend/
-│   ├── main.py               — FastAPI app + all endpoints + business logic
+│   ├── main.py             — FastAPI app, all endpoints, business logic
+│   ├── auth.py             — JWT logic: hashing, token creation/decoding, auth dependency
 │   ├── database.py           — SQLite connection + context manager + table init
 │   ├── structs_pydantic.py   — Pydantic request/response models
 │   ├── requirements.txt      — Python dependencies
 │   └── Dockerfile            — Backend container definition
 ├── frontend/
 │   ├── src/
-│   │   ├── App.jsx           — Root component, state, data fetching
-│   │   ├── api.js            — All fetch calls to the backend
-│   │   └── components/
-│   │       ├── TaskForm.jsx  — Create task form
-│   │       └── TaskList.jsx  — Task list with edit, complete, delete
+│   │    ├── App.jsx           — Root component. Owns all state, auth flag, data fetching.
+│   │    ├── api.js            — All fetch calls + token management.
+│   │    └── components/
+│   │         ├── LoginForm.jsx — Username/password form. Handles login and register.
+│   │         ├── TaskForm.jsx  — Form for creating new tasks.
+│   │         └── TaskList.jsx  — Renders the task list with inline editing.
 │   ├── .env                  — Local environment variables (gitignored)
 │   ├── package.json
 │   └── Dockerfile            — Frontend container definition
 ├── docs/
-│   ├── API_DOCS.md           — Full API endpoint documentation
-│   ├── DB_DOCS.md            — Database schema documentation
-│   └── FRONTEND_DOCS.md      — Frontend structure and component documentation
+│   ├── API_docs.md           — Full API endpoint documentation
+│   ├── DB_docs.md            — Database schema documentation
+│   └── FRONTEND_docs.md      — Frontend structure and component documentation
 ├── data/                     — Local SQLite DB (gitignored)
 ├── docker-compose.yml        — Spins up the full stack
 └── .gitignore
